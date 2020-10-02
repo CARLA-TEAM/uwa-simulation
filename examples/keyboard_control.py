@@ -903,6 +903,8 @@ class CameraManager(object):
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
+            (carla.Transform(carla.Location(x=-8.0, z=3), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (carla.Transform(carla.Location(x=-10.0, z=4), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
@@ -1028,10 +1030,8 @@ def game_loop(args):
         # Current width divided by the number of screens
         current_width = int(info.current_w / 3)
 
-
         # Sets the name of the window
         pygame.display.set_caption(WINDOW_TITLE)
-
         # Load the UWA icon
         img = pygame.image.load(IMG_SRC)
         # Sets the UWA icon
