@@ -131,6 +131,13 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
+# ==============================================================================
+# -- Constants ----------------------------------------------------------
+# ==============================================================================
+
+WINDOW_TITLE = "UWA Simulation"
+IMG_SRC = "../uwa-logo.png"
+
 
 # ==============================================================================
 # -- Global functions ----------------------------------------------------------
@@ -1009,14 +1016,32 @@ def game_loop(args):
 
     try:
         client = carla.Client(args.host, args.port)
-        # client.set_timeout(2.0)
+        # Sets a longer timeout to give time CARLA simulation to start
         client.set_timeout(30.0)
 
-        display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
+        # Gets the information about the screens
+        info = pygame.display.Info()
+        '''
+        TODO: Change this current size and add args WxH if exists
+        '''
+        current_height = info.current_h
+        # Current width divided by the number of screens
+        current_width = int(info.current_w / 3)
 
-        hud = HUD(args.width, args.height)
+
+        # Sets the name of the window
+        pygame.display.set_caption(WINDOW_TITLE)
+
+        # Load the UWA icon
+        img = pygame.image.load(IMG_SRC)
+        # Sets the UWA icon
+        pygame.display.set_icon(img)
+
+        display = pygame.display.set_mode(
+            (current_width, current_height),
+            pygame.HWSURFACE | pygame.DOUBLEBUF, pygame.RESIZABLE)
+
+        hud = HUD(current_width, current_height)
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world, args.autopilot)
 
