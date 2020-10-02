@@ -220,6 +220,10 @@ class World(object):
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            # Spawning vehicle in REID Library
+            spawn_point.location.x = -85.3
+            spawn_point.location.y = -274.9
+            spawn_point.rotation.yaw = 90
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
@@ -1005,7 +1009,8 @@ def game_loop(args):
 
     try:
         client = carla.Client(args.host, args.port)
-        client.set_timeout(2.0)
+        # client.set_timeout(2.0)
+        client.set_timeout(30.0)
 
         display = pygame.display.set_mode(
             (args.width, args.height),
