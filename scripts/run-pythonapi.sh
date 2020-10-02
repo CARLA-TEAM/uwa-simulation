@@ -9,7 +9,7 @@
 
 # Projects directory
 # PROJECTS_DIR=/Simulation/Gerardo/carla/PythonAPI/project
-Projects_DIR=/home/uwarobotics/Documents/Project/CARLA-package/PythonAPI/examples 
+PROJECTS_DIR=/home/uwarobotics/Documents/Project/CARLA-package/PythonAPI/examples 
 JOYSTICK_FILENAME=joystick_control.py
 KEYBOARD_FILENAME=keyboard_control.py
 # KEYBOARD_FILENAME=keyboard_control.py
@@ -21,6 +21,6 @@ python_script=${KEYBOARD_FILENAME}
 else
 python_script=${JOYSTICK_FILENAME}
 fi
-
+cd ~
 cd ${PROJECTS_DIR}
-python3 ${python_script} &
+python3 ${python_script}
