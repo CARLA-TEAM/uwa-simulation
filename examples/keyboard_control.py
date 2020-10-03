@@ -131,6 +131,13 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
+# ==============================================================================
+# -- Constants ----------------------------------------------------------
+# ==============================================================================
+
+WINDOW_TITLE = "UWA Simulation"
+IMG_SRC = "../uwa-logo.png"
+
 
 # ==============================================================================
 # -- Global functions ----------------------------------------------------------
@@ -220,6 +227,10 @@ class World(object):
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            # Spawning vehicle in REID Library
+            spawn_point.location.x = -85.3
+            spawn_point.location.y = -274.9
+            spawn_point.rotation.yaw = 90
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
@@ -892,6 +903,8 @@ class CameraManager(object):
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
+            (carla.Transform(carla.Location(x=-8.0, z=3), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (carla.Transform(carla.Location(x=-10.0, z=4), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
@@ -1005,13 +1018,30 @@ def game_loop(args):
 
     try:
         client = carla.Client(args.host, args.port)
-        client.set_timeout(2.0)
+        # Sets a longer timeout to give time CARLA simulation to start
+        client.set_timeout(30.0)
+
+        # Gets the information about the screens
+        info = pygame.display.Info()
+        '''
+        TODO: Change this current size and add args WxH if exists
+        '''
+        current_height = info.current_h
+        # Current width divided by the number of screens
+        current_width = int(info.current_w / 3)
+
+        # Sets the name of the window
+        pygame.display.set_caption(WINDOW_TITLE)
+        # Load the UWA icon
+        img = pygame.image.load(IMG_SRC)
+        # Sets the UWA icon
+        pygame.display.set_icon(img)
 
         display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
+            (current_width, current_height),
+            pygame.HWSURFACE | pygame.DOUBLEBUF, pygame.RESIZABLE)
 
-        hud = HUD(args.width, args.height)
+        hud = HUD(current_width, current_height)
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world, args.autopilot)
 
