@@ -1019,7 +1019,7 @@ def game_loop(args):
     try:
         client = carla.Client(args.host, args.port)
         # Sets a longer timeout to give time CARLA simulation to start
-        client.set_timeout(30.0)
+        client.set_timeout(60.0)
 
         # Gets the information about the screens
         info = pygame.display.Info()
