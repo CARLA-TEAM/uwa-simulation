@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Absolute path to this script
+SCRIPT=$(readlink -f "$0")
+# Absolute path this script is
+SCRIPTPATH=$(dirname "$SCRIPT")
+cd $SCRIPTPATH
+
 # Run CARLA World
 cd ../..
 ./CarlaUE4.sh </dev/null &>/dev/null &
