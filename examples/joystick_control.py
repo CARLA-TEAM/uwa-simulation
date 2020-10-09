@@ -78,12 +78,14 @@ import math
 import random
 import re
 import weakref
+import subprocess
 
 try:
     import pygame
     from pygame.locals import KMOD_CTRL
     from pygame.locals import KMOD_SHIFT
     from pygame.locals import K_0
+    from pygame.locals import K_1
     from pygame.locals import K_9
     from pygame.locals import K_BACKQUOTE
     from pygame.locals import K_BACKSPACE
@@ -377,6 +379,10 @@ class KeyboardControl(object):
                         world.player.set_autopilot(True)
                     else:
                         world.restart()
+                elif event.key == K_1:
+                    # Change script to joystick
+                    subprocess.Popen(["../scripts/run-pythonapi.sh", "keyboard"])
+                    return True
                 elif event.key == K_F1:
                     world.hud.toggle_info()
                 elif event.key == K_h or (event.key == K_SLASH and pygame.key.get_mods() & KMOD_SHIFT):
