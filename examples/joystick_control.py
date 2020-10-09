@@ -124,6 +124,13 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
+# ==============================================================================
+# -- Constants ----------------------------------------------------------
+# ==============================================================================
+
+WINDOW_TITLE = "UWA Simulation"
+IMG_SRC = "../uwa-logo.png"
+
 
 # ==============================================================================
 # -- Global functions ----------------------------------------------------------
@@ -191,7 +198,6 @@ class World(object):
                 - vehicle.mercedes-benz.coupe
                 - vehicle.audi.tt
         '''
-        vehicle_id = "vehicle.bus.bus"
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 0
@@ -957,11 +963,14 @@ class CameraManager(object):
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
+            (carla.Transform(carla.Location(x=-8.0, z=3), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (carla.Transform(carla.Location(x=-10.0, z=4), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)
+        ]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
@@ -1070,17 +1079,28 @@ def game_loop(args):
 
     try:
         client = carla.Client(args.host, args.port)
-        client.set_timeout(2.0)
-        # screen = pygame.display.get_surface()
-        # print(pygame.display)
-        # print(pygame.display.get_width())
-        # Default='1280x720'
-        # width = 1800
-        # height = 1040
+        # Sets a longer timeout to give time CARLA simulation to start
+        client.set_timeout(60.0)
+
+        # Gets the information about the screens
+        info = pygame.display.Info()
+        '''
+        TODO: Change this current size and add args WxH if exists
+        '''
+        current_height = info.current_h
+        # Current width divided by the number of screens
+        current_width = int(info.current_w / 3)
+
+        # Sets the name of the window
+        pygame.display.set_caption(WINDOW_TITLE)
+        # Load the UWA icon
+        img = pygame.image.load(IMG_SRC)
+        # Sets the UWA icon
+        pygame.display.set_icon(img)
 
         display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
+            (current_width, current_height),
+            pygame.HWSURFACE | pygame.DOUBLEBUF, pygame.RESIZABLE)
 
         hud = HUD(args.width, args.height)
         world = World(client.get_world(), hud, args)

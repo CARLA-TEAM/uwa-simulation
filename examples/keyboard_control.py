@@ -188,7 +188,18 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
-
+        '''
+        Vehicle id
+            Options:
+                - vehicle.mustang.mustang
+                - vehicle.bmw.grandtourer
+                - vehicle.audi.etron
+                - vehicle.dodge_charger.police
+                - vehicle.jeep.wrangler_rubicon
+                - vehicle.bmw.isetta
+                - vehicle.mercedes-benz.coupe
+                - vehicle.audi.tt
+        '''
     def restart(self):
         self.player_max_speed = 1.589
         self.player_max_speed_fast = 3.713
@@ -909,7 +920,8 @@ class CameraManager(object):
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)
+        ]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
