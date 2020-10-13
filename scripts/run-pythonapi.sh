@@ -10,19 +10,13 @@
 # Projects directory
 PROJECTS_DIR=../examples 
 JOYSTICK_FILENAME=joystick_control.py
-KEYBOARD_FILENAME=keyboard_control.py
+# Old file to enable keyboard only
+# KEYBOARD_FILENAME=keyboard_control.py
 
-if [[ $KEYBOARD_FILENAME == *$1* ]]
-then
-echo ${KEYBOARD_FILENAME}
-python_script=${KEYBOARD_FILENAME}
-else
-python_script=${JOYSTICK_FILENAME}
-fi
 
 # Changes relative directory to examples folder
 cd ${PROJECTS_DIR}
-python3 ${python_script} </dev/null &>/dev/null &
+python3 ${JOYSTICK_FILENAME} </dev/null &>/dev/null &
 # Stores the process ID
 pid=$!
 # Displays the process ID in the console

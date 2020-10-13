@@ -183,6 +183,7 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
+        self.keyboard_control = True
         # self._vehicle_id = "vehicle.mercedes-benz.coupe"
 
     def restart(self):
@@ -211,9 +212,9 @@ class World(object):
         joystick = joysticks[0]
         joystick.init()
 
-        buttons = joystick.get_numbuttons() 
-        for i in range(buttons):
-            button = joystick.get_button(i)
+        # buttons = joystick.get_numbuttons() 
+        # for i in range(buttons):
+        #     button = joystick.get_button(i)
         blueprint.set_attribute('role_name', self.actor_role_name)
         if blueprint.has_attribute('color'):
             color = random.choice(blueprint.get_attribute('color').recommended_values)
@@ -244,11 +245,13 @@ class World(object):
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            
             # Spawning vehicle in REID Library
             spawn_point.location.x = -85.3
             spawn_point.location.y = -274.9
             spawn_point.rotation.yaw = 90
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
@@ -338,37 +341,39 @@ class KeyboardControl(object):
         if isinstance(self._control, carla.VehicleControl):
             current_lights = self._lights
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return True
-            elif event.type == pygame.JOYBUTTONDOWN:
-                # for i in range(self.joystick.get_numbuttons()):
-                #     button = self.joystick.get_button(i)
-                if self.joystick.get_button(JOYSTICK_REVERSE):
-                    self._control.gear = -1
-            elif event.type == pygame.JOYBUTTONUP:
-                # for i in range(self.joystick.get_numbuttons()):
-                #     button = self.joystick.get_button(i)
-                if not self.joystick.get_button(JOYSTICK_REVERSE):
-                    self._control.gear = 1
+
+            if not world.keyboard_control:
+                if event.type == pygame.JOYBUTTONDOWN:
+                    # for i in range(self.joystick.get_numbuttons()):
+                    #     button = self.joystick.get_button(i)
+                    if self.joystick.get_button(JOYSTICK_REVERSE):
+                        self._control.gear = -1
+                elif event.type == pygame.JOYBUTTONUP:
+                    # for i in range(self.joystick.get_numbuttons()):
+                    #     button = self.joystick.get_button(i)
+                    if not self.joystick.get_button(JOYSTICK_REVERSE):
+                        self._control.gear = 1
+                
+                elif event.type == pygame.JOYAXISMOTION:
+                    axes = self.joystick.get_numaxes()
+                    for i in range(axes):
+                        # Axis 0 is steering wheel. 
+                        # This Id can change when the computer or the joystick is restarted
+                        if i == STEERING_WHEEL_AXIS: 
+                            self._steer_cache = float(self.joystick.get_axis(i))
+                            self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+                            self._control.steer = round(self._steer_cache, 3)
+
+                        if i == THROTTLE_AXIS: #keys[K_UP] or keys[K_w]:
+                            throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                            self._control.throttle = min(throttle, 1)
+
+                        if i == BRAKE_AXIS: # keys[K_DOWN] or keys[K_s]:
+                            brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                            self._control.brake = min(brake, 1)
             
-            elif event.type == pygame.JOYAXISMOTION:
-                axes = self.joystick.get_numaxes()
-                for i in range(axes):
-                    # Axis 0 is steering wheel. 
-                    # This Id can change when the computer or the joystick is restarted
-                    if i == STEERING_WHEEL_AXIS: 
-                        self._steer_cache = float(self.joystick.get_axis(i))
-                        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
-                        self._control.steer = round(self._steer_cache, 3)
-
-                    if i == THROTTLE_AXIS: #keys[K_UP] or keys[K_w]:
-                        throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
-                        self._control.throttle = min(throttle, 1)
-
-                    if i == BRAKE_AXIS: # keys[K_DOWN] or keys[K_s]:
-                        brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
-                        self._control.brake = min(brake, 1)
-                    
+            if event.type == pygame.QUIT:
+                return True            
             elif event.type == pygame.KEYUP:
                 if self._is_quit_shortcut(event.key):
                     return True
@@ -381,8 +386,13 @@ class KeyboardControl(object):
                         world.restart()
                 elif event.key == K_1:
                     # Change script to joystick
-                    subprocess.Popen(["../scripts/run-pythonapi.sh", "keyboard"])
-                    return True
+                    # subprocess.Popen(["../scripts/run-pythonapi.sh", "keyboard"])
+                    # return True
+                    if world.keyboard_control:
+                        world.keyboard_control = False
+                    else:
+                        world.keyboard_control = True
+
                 elif event.key == K_F1:
                     world.hud.toggle_info()
                 elif event.key == K_h or (event.key == K_SLASH and pygame.key.get_mods() & KMOD_SHIFT):
@@ -485,7 +495,8 @@ class KeyboardControl(object):
 
         if not self._autopilot_enabled:
             if isinstance(self._control, carla.VehicleControl):
-                self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
+                if world.keyboard_control:
+                    self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
                 self._control.reverse = self._control.gear < 0
                 # Set automatic control-related vehicle lights
                 if self._control.brake:
@@ -503,38 +514,67 @@ class KeyboardControl(object):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
             world.player.apply_control(self._control)
 
+    # def _parse_vehicle_keys(self, keys, milliseconds, world):
+    #     if keys[K_UP] or keys[K_w]:
+    #         self._control.throttle = min(self._control.throttle + 0.01, 1)
+    #     elif world.keyboard_control:
+    #         self._control.throttle = 0.0
+
+    #     if keys[K_DOWN] or keys[K_s]:
+    #         self._control.brake = min(self._control.brake + 0.2, 1)
+    #     elif world.keyboard_control:
+    #         self._control.brake = 0
+
+    #     steer_increment = 5e-4 * milliseconds
+
+    #     if keys[K_LEFT] or keys[K_a]:
+    #         if self._steer_cache > 0:
+    #             self._steer_cache = 0
+    #         else:
+    #             self._steer_cache -= steer_increment
+    #         # print("KEY L self._steer_cache")
+    #         # print(self._steer_cache)
+    #     elif keys[K_RIGHT] or keys[K_d]:
+    #         if self._steer_cache < 0:
+    #             self._steer_cache = 0
+    #         else:
+    #             self._steer_cache += steer_increment
+    #         # print("KEY R self._steer_cache")
+    #         # print(self._steer_cache)
+    #     if world.keyboard_control:
+    #         self._steer_cache = 0.0
+    #     if world.keyboard_control:
+    #         self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+    #         self._control.steer = round(self._steer_cache, 1)
+    #         self._control.hand_brake = keys[K_SPACE]
+
     def _parse_vehicle_keys(self, keys, milliseconds):
         if keys[K_UP] or keys[K_w]:
             self._control.throttle = min(self._control.throttle + 0.01, 1)
-        # else:
-        #     self._control.throttle = 0.0
+        else:
+            self._control.throttle = 0.0
 
         if keys[K_DOWN] or keys[K_s]:
             self._control.brake = min(self._control.brake + 0.2, 1)
-        # else:
-        #     self._control.brake = 0
+        else:
+            self._control.brake = 0
 
         steer_increment = 5e-4 * milliseconds
-
         if keys[K_LEFT] or keys[K_a]:
             if self._steer_cache > 0:
                 self._steer_cache = 0
             else:
                 self._steer_cache -= steer_increment
-            print("KEY L self._steer_cache")
-            print(self._steer_cache)
         elif keys[K_RIGHT] or keys[K_d]:
             if self._steer_cache < 0:
                 self._steer_cache = 0
             else:
                 self._steer_cache += steer_increment
-            print("KEY R self._steer_cache")
-            print(self._steer_cache)
-        # else:
-        #     self._steer_cache = 0.0
-        # self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
-        # self._control.steer = round(self._steer_cache, 1)
-        # self._control.hand_brake = keys[K_SPACE]
+        else:
+            self._steer_cache = 0.0
+        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+        self._control.steer = round(self._steer_cache, 1)
+        self._control.hand_brake = keys[K_SPACE]
 
     def _parse_walker_keys(self, keys, milliseconds, world):
         self._control.speed = 0.0
@@ -622,6 +662,10 @@ class HUD(object):
             'Height:  % 18.0f m' % t.location.z,
             '']
         if isinstance(c, carla.VehicleControl):
+            if world.keyboard_control:
+                control_msg = "Keyboard"
+            else:
+                control_msg = "Steering Wheel/Joystick"
             self._info_text += [
                 ('Throttle:', c.throttle, 0.0, 1.0),
                 ('Steer:', c.steer, -1.0, 1.0),
@@ -629,7 +673,8 @@ class HUD(object):
                 ('Reverse:', c.reverse),
                 ('Hand brake:', c.hand_brake),
                 ('Manual:', c.manual_gear_shift),
-                'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
+                'Control:', control_msg]
+                #'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
         elif isinstance(c, carla.WalkerControl):
             self._info_text += [
                 ('Speed:', c.speed, 0.0, 5.556),
