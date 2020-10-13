@@ -15,8 +15,8 @@ cd ../..
 # Displays the process ID in the console
 # echo "CARLA Process ${pid}"
 
-# Waits 10 seconds to open Carla 
-sleep 10
+# Waits 15 seconds while processing CARLA
+sleep 15
 
 # Run Python API Simulation
 cd PythonAPI/scripts

@@ -85,12 +85,14 @@ import math
 import random
 import re
 import weakref
+import subprocess
 
 try:
     import pygame
     from pygame.locals import KMOD_CTRL
     from pygame.locals import KMOD_SHIFT
     from pygame.locals import K_0
+    from pygame.locals import K_1
     from pygame.locals import K_9
     from pygame.locals import K_BACKQUOTE
     from pygame.locals import K_BACKSPACE
@@ -188,7 +190,18 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
-
+        '''
+        Vehicle id
+            Options:
+                - vehicle.mustang.mustang
+                - vehicle.bmw.grandtourer
+                - vehicle.audi.etron
+                - vehicle.dodge_charger.police
+                - vehicle.jeep.wrangler_rubicon
+                - vehicle.bmw.isetta
+                - vehicle.mercedes-benz.coupe
+                - vehicle.audi.tt
+        '''
     def restart(self):
         self.player_max_speed = 1.589
         self.player_max_speed_fast = 3.713
@@ -323,6 +336,10 @@ class KeyboardControl(object):
                         world.player.set_autopilot(True)
                     else:
                         world.restart()
+                elif event.key == K_1:
+                    # Change script to joystick
+                    subprocess.Popen(["../scripts/run-pythonapi.sh", "joystick"])
+                    return True
                 elif event.key == K_F1:
                     world.hud.toggle_info()
                 elif event.key == K_h or (event.key == K_SLASH and pygame.key.get_mods() & KMOD_SHIFT):
@@ -909,7 +926,8 @@ class CameraManager(object):
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)
+        ]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
