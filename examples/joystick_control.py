@@ -197,6 +197,8 @@ class World(object):
         self.recording_enabled = False
         self.recording_start = 0
         self.keyboard_control = True
+        self.max_throttle = 0.6
+        self.max_turning = 0.4
         # self._vehicle_id = "vehicle.mercedes-benz.coupe"
 
     def restart(self):
@@ -261,6 +263,7 @@ class World(object):
             # Spawning vehicle in REID Library
             spawn_point.location.x = -85.3
             spawn_point.location.y = -274.9
+            spawn_point.location.z = spawn_point.location.z + 15
             spawn_point.rotation.yaw = 90
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
 
@@ -325,6 +328,7 @@ class KeyboardControl(object):
     """Class that handles keyboard input."""
     def __init__(self, world, start_in_autopilot):
         self._autopilot_enabled = start_in_autopilot
+        self.speed_limit = 20
         if isinstance(world.player, carla.Vehicle):
             self._control = carla.VehicleControl()
             self._lights = carla.VehicleLightState.NONE
@@ -427,13 +431,25 @@ class KeyboardControl(object):
                     # Axis 0 is steering wheel. 
                     # This Id can change when the computer or the joystick is restarted
                     if i == STEERING_WHEEL_AXIS: 
-                        self._steer_cache = float(self.joystick.get_axis(i))
-                        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+                        self._steer_cache = float(self.joystick.get_axis(i)) * 0.6 # Turn multiplier
+                        # min/max are the values of how much the vehicle can 
+                        turn_min = world.max_turning #0.7 old value
+                        turn_max = -world.max_turning #-0.7 old value
+                        self._steer_cache = min(turn_min, max(turn_max, self._steer_cache))
                         self._control.steer = round(self._steer_cache, 3)
 
                     if i == THROTTLE_AXIS:
+                        # Adjust throttle to speed limit
+                        velocity = world.player.get_velocity()
+                        speed = (3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2))
                         throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
-                        self._control.throttle = min(throttle, 1)
+                        # slow down the acceleration (throttle)
+                        throttle_multiplier = 1.5
+                        if self.speed_limit < speed:
+                            throttle_multiplier = throttle_multiplier + (speed-self.speed_limit) / 10
+                        throttle = throttle/throttle_multiplier
+                        # Updates the vehicle throttle
+                        self._control.throttle = min(throttle, world.max_throttle)
 
                     if i == BRAKE_AXIS:
                         brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
@@ -562,7 +578,11 @@ class KeyboardControl(object):
             if isinstance(self._control, carla.VehicleControl):
                 # Drive with keyboard only when keyboard control is activated
                 if world.keyboard_control:
-                    self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
+                    self._parse_vehicle_keys(
+                        pygame.key.get_pressed(),
+                        clock.get_time(),
+                        world
+                    )
                 self._control.reverse = self._control.gear < 0
                 # Set automatic control-related vehicle lights
                 if self._control.brake:
@@ -580,43 +600,16 @@ class KeyboardControl(object):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
             world.player.apply_control(self._control)
 
-    # def _parse_vehicle_keys(self, keys, milliseconds, world):
-    #     if keys[K_UP] or keys[K_w]:
-    #         self._control.throttle = min(self._control.throttle + 0.01, 1)
-    #     elif world.keyboard_control:
-    #         self._control.throttle = 0.0
-
-    #     if keys[K_DOWN] or keys[K_s]:
-    #         self._control.brake = min(self._control.brake + 0.2, 1)
-    #     elif world.keyboard_control:
-    #         self._control.brake = 0
-
-    #     steer_increment = 5e-4 * milliseconds
-
-    #     if keys[K_LEFT] or keys[K_a]:
-    #         if self._steer_cache > 0:
-    #             self._steer_cache = 0
-    #         else:
-    #             self._steer_cache -= steer_increment
-    #         # print("KEY L self._steer_cache")
-    #         # print(self._steer_cache)
-    #     elif keys[K_RIGHT] or keys[K_d]:
-    #         if self._steer_cache < 0:
-    #             self._steer_cache = 0
-    #         else:
-    #             self._steer_cache += steer_increment
-    #         # print("KEY R self._steer_cache")
-    #         # print(self._steer_cache)
-    #     if world.keyboard_control:
-    #         self._steer_cache = 0.0
-    #     if world.keyboard_control:
-    #         self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
-    #         self._control.steer = round(self._steer_cache, 1)
-    #         self._control.hand_brake = keys[K_SPACE]
-
-    def _parse_vehicle_keys(self, keys, milliseconds):
+    def _parse_vehicle_keys(self, keys, milliseconds, world):
         if keys[K_UP] or keys[K_w]:
-            self._control.throttle = min(self._control.throttle + 0.01, 1)
+            # Adjust throttle to speed limit
+            velocity = world.player.get_velocity()
+            speed = (3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2))
+            throttle = 0.01
+            if self.speed_limit > speed:
+                throttle = 0
+
+            self._control.throttle = min(self._control.throttle + 0.01, world.max_throttle)
         else:
             self._control.throttle = 0.0
 
@@ -638,7 +631,10 @@ class KeyboardControl(object):
                 self._steer_cache += steer_increment
         else:
             self._steer_cache = 0.0
-        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+        # min/max are the values of how much the vehicle can 
+        turn_min = world.max_turning #0.7 old value
+        turn_max = -world.max_turning #-0.7 old value
+        self._steer_cache = min(turn_min, max(turn_max, self._steer_cache))
         self._control.steer = round(self._steer_cache, 1)
         self._control.hand_brake = keys[K_SPACE]
 
@@ -733,8 +729,10 @@ class HUD(object):
             else:
                 control_msg = "Steering Wheel/Joystick"
             self._info_text += [
-                ('Throttle:', c.throttle, 0.0, 1.0),
-                ('Steer:', c.steer, -1.0, 1.0),
+                # Max throttle set in world
+                ('Throttle:', c.throttle, 0.0, world.max_throttle),
+                # Max turning set in world
+                ('Steer:', c.steer, -world.max_turning, world.max_turning),
                 ('Brake:', c.brake, 0.0, 1.0),
                 ('Reverse:', c.reverse),
                 ('Hand brake:', c.hand_brake),
