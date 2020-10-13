@@ -1,43 +1,56 @@
 # University of Western Australia
 # CITS5551 - CARLA simulation of autonomous vehicle
-# 
+# Gerardo Cisneros Mendoza 21993026
+# Yuan Shi 22167488
+# Yunzhuo Chen 22075606
+# Stephen Arowosafe 22586578
+# Guangming Chen
 
 """
-Welcome to CARLA manual control.
+Welcome to CARLA UWA SIMULATION.
+University of Western Australia
+CITS5551 - CARLA simulation of autonomous vehicle
+- Gerardo Cisneros Mendoza 21993026
+- Yuan Shi 22167488
+- Yunzhuo Chen 22075606
+- Stephen Arowosafe 22586578
+- Guangming Chen
 
 Use ARROWS or WASD keys for control.
+ KEYBOARD    JOYSTICK
+    1       SQUARES/7   : Change control mode (Keyboard/Joystick)
 
-    W            : throttle
-    S            : brake
-    A/D          : steer left/right
-    Q            : toggle reverse
-    Space        : hand-brake
-    P            : toggle autopilot
-    M            : toggle manual transmission
-    ,/.          : gear up/down
-
-    L            : toggle next light type
-    SHIFT + L    : toggle high beam
-    Z/X          : toggle right/left blinker
-    I            : toggle interior light
-
-    TAB          : change sensor position
-    ` or N       : next sensor
-    [1-9]        : change to sensor [1-9]
-    G            : toggle radar visualization
-    C            : change weather (Shift+C reverse)
-    Backspace    : change vehicle
-
-    R            : toggle recording images to disk
-
-    CTRL + R     : toggle recording of simulation (replacing any previous)
-    CTRL + P     : start replaying last recorded simulation
-    CTRL + +     : increments the start time of the replay by 1 second (+SHIFT = 10 seconds)
-    CTRL + -     : decrements the start time of the replay by 1 second (+SHIFT = 10 seconds)
-
-    F1           : toggle HUD
-    H/?          : toggle help
-    ESC          : quit
+    W        AXIS X     : throttle
+    S        AXIS X     : brake
+    A/D      AXIS Y     : steer left/right
+    Q        GEAR/15    : toggle reverse
+    Space               : hand-brake
+    P         LSB       : toggle autopilot
+    M                   : toggle manual transmission
+    ,/.                 : gear up/down
+    
+    L                   : toggle next light type
+    SHIFT + L           : toggle high beam
+    Z/X                 : toggle right/left blinker
+    I                   : toggle interior light
+    
+    TAB          Y      : change sensor position
+    ` or N       X      : next sensor
+    [1-9]               : change to sensor [1-9]
+    G                   : toggle radar visualization
+    C            B      : change weather (Shift+C reverse)
+    Backspace           : change vehicle
+    
+    R                   : toggle recording images to disk
+    
+    CTRL + R            : toggle recording of simulation (replacing any previous)
+    CTRL + P            : start replaying last recorded simulation
+    CTRL + +            : increments the start time of the replay by 1 second (+SHIFT = 10 seconds)
+    CTRL + -            : decrements the start time of the replay by 1 second (+SHIFT = 10 seconds)
+    
+    F1          RSB     : toggle HUD
+    H/?         = / 6   : toggle help
+    ESC         XBOX    : quit
 """
 
 from __future__ import print_function
@@ -205,7 +218,6 @@ class World(object):
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 0
         # Get a random blueprint.
-        print(self.world.get_blueprint_library())
         blueprint = random.choice(self.world.get_blueprint_library().filter('vehicle'))
         pygame.joystick.init()
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
@@ -326,7 +338,10 @@ class KeyboardControl(object):
             raise NotImplementedError("Actor type not supported")
         self._steer_cache = 0.0
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
-        self.joystick = pygame.joystick.Joystick(0)
+        try:
+            self.joystick = pygame.joystick.Joystick(0)
+        except:
+            print("Error: No joystick detected.")
         self.throttle_on = False
         self.brake_on = False
 
@@ -334,6 +349,15 @@ class KeyboardControl(object):
         JOYSTICK_THROTTLE = 4
         JOYSTICK_BRAKE = 5
         JOYSTICK_REVERSE = 15
+        JOYSTICK_SWITCH = 7
+        JOYSTICK_INFO = 6
+        JOYSTICK_XBOX = 10
+        JOYSTICK_LSB = 9
+        JOYSTICK_RSB = 8
+        JOYSTICK_Y = 3
+        JOYSTICK_B = 1
+        JOYSTICK_A = 0
+        JOYSTICK_X = 2
         STEERING_WHEEL_AXIS = 0
         THROTTLE_AXIS = 1
         BRAKE_AXIS = 2
@@ -342,35 +366,78 @@ class KeyboardControl(object):
             current_lights = self._lights
         for event in pygame.event.get():
 
-            if not world.keyboard_control:
-                if event.type == pygame.JOYBUTTONDOWN:
-                    # for i in range(self.joystick.get_numbuttons()):
-                    #     button = self.joystick.get_button(i)
-                    if self.joystick.get_button(JOYSTICK_REVERSE):
-                        self._control.gear = -1
-                elif event.type == pygame.JOYBUTTONUP:
-                    # for i in range(self.joystick.get_numbuttons()):
-                    #     button = self.joystick.get_button(i)
-                    if not self.joystick.get_button(JOYSTICK_REVERSE):
-                        self._control.gear = 1
-                
-                elif event.type == pygame.JOYAXISMOTION:
-                    axes = self.joystick.get_numaxes()
-                    for i in range(axes):
-                        # Axis 0 is steering wheel. 
-                        # This Id can change when the computer or the joystick is restarted
-                        if i == STEERING_WHEEL_AXIS: 
-                            self._steer_cache = float(self.joystick.get_axis(i))
-                            self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
-                            self._control.steer = round(self._steer_cache, 3)
+            # if not world.keyboard_control:
+            if event.type == pygame.JOYBUTTONDOWN:
+                for i in range(self.joystick.get_numbuttons()):
+                    button = self.joystick.get_button(i)
+                if self.joystick.get_button(JOYSTICK_REVERSE):
+                    self._control.gear = -1
 
-                        if i == THROTTLE_AXIS: #keys[K_UP] or keys[K_w]:
-                            throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
-                            self._control.throttle = min(throttle, 1)
+                if self.joystick.get_button(JOYSTICK_SWITCH):
+                    # Changes the driving control
+                    if world.keyboard_control:
+                        world.keyboard_control = False
+                    else:
+                        world.keyboard_control = True
 
-                        if i == BRAKE_AXIS: # keys[K_DOWN] or keys[K_s]:
-                            brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
-                            self._control.brake = min(brake, 1)
+                if self.joystick.get_button(JOYSTICK_LSB):
+                    # Enables/disables autopilot
+                    if self._autopilot_enabled:
+                        world.player.set_autopilot(False)
+                        world.restart()
+                        world.player.set_autopilot(True)
+                    else:
+                        world.restart()
+
+                if self.joystick.get_button(JOYSTICK_RSB):
+                    # Hides the HUD
+                    world.hud.toggle_info()
+
+                if self.joystick.get_button(JOYSTICK_INFO):
+                    # Displays the info
+                    world.hud.help.toggle()
+
+                if self.joystick.get_button(JOYSTICK_Y):
+                    # Change the view of the simulation
+                    world.camera_manager.toggle_camera()
+
+                if self.joystick.get_button(JOYSTICK_X):
+                    # Change the view of the sensors
+                    world.camera_manager.next_sensor()
+
+                if self.joystick.get_button(JOYSTICK_B):
+                    # Change weather
+                    world.next_weather()
+
+                if self.joystick.get_button(JOYSTICK_XBOX):
+                    # Quit
+                    return True            
+
+            elif event.type == pygame.JOYBUTTONUP:
+                for i in range(self.joystick.get_numbuttons()):
+                    button = self.joystick.get_button(i)
+
+                if not self.joystick.get_button(JOYSTICK_REVERSE):
+                    self._control.gear = 1
+            
+            elif event.type == pygame.JOYAXISMOTION and not world.keyboard_control:
+                # Drive with steering wheel only when keyboard control is NOT activated
+                axes = self.joystick.get_numaxes()
+                for i in range(axes):
+                    # Axis 0 is steering wheel. 
+                    # This Id can change when the computer or the joystick is restarted
+                    if i == STEERING_WHEEL_AXIS: 
+                        self._steer_cache = float(self.joystick.get_axis(i))
+                        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+                        self._control.steer = round(self._steer_cache, 3)
+
+                    if i == THROTTLE_AXIS:
+                        throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                        self._control.throttle = min(throttle, 1)
+
+                    if i == BRAKE_AXIS:
+                        brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                        self._control.brake = min(brake, 1)
             
             if event.type == pygame.QUIT:
                 return True            
@@ -385,9 +452,7 @@ class KeyboardControl(object):
                     else:
                         world.restart()
                 elif event.key == K_1:
-                    # Change script to joystick
-                    # subprocess.Popen(["../scripts/run-pythonapi.sh", "keyboard"])
-                    # return True
+                    # Changes the driving control
                     if world.keyboard_control:
                         world.keyboard_control = False
                     else:
@@ -495,6 +560,7 @@ class KeyboardControl(object):
 
         if not self._autopilot_enabled:
             if isinstance(self._control, carla.VehicleControl):
+                # Drive with keyboard only when keyboard control is activated
                 if world.keyboard_control:
                     self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
                 self._control.reverse = self._control.gear < 0
