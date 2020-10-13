@@ -329,6 +329,11 @@ class KeyboardControl(object):
     def __init__(self, world, start_in_autopilot):
         self._autopilot_enabled = start_in_autopilot
         self.speed_limit = 20
+        # Sets the initial values of the joystick when mode changes
+        self.switch_control_mode_throttle = False
+        self.switch_control_mode_brake = False
+        self.init_throttle = 0
+        self.init_brake = 0
         if isinstance(world.player, carla.Vehicle):
             self._control = carla.VehicleControl()
             self._lights = carla.VehicleLightState.NONE
@@ -380,6 +385,8 @@ class KeyboardControl(object):
                 if self.joystick.get_button(JOYSTICK_SWITCH):
                     # Changes the driving control
                     if world.keyboard_control:
+                        self.switch_control_mode_throttle = True
+                        self.switch_control_mode_brake = True
                         world.keyboard_control = False
                     else:
                         world.keyboard_control = True
@@ -448,11 +455,31 @@ class KeyboardControl(object):
                         if self.speed_limit < speed:
                             throttle_multiplier = throttle_multiplier + (speed-self.speed_limit) / 10
                         throttle = throttle/throttle_multiplier
+
+                        # Sets initial value of the throttle
+                        if self.switch_control_mode_throttle:
+                            self.init_throttle = throttle
+                            self.switch_control_mode_throttle = False
+                        if self.init_throttle == throttle:
+                            throttle = 0
+                        else:
+                            self.init_throttle = 0
+                        
                         # Updates the vehicle throttle
                         self._control.throttle = min(throttle, world.max_throttle)
 
                     if i == BRAKE_AXIS:
                         brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                        # Sets initial value of the brake
+                        if self.switch_control_mode_brake:
+                            self.init_brake = brake
+                            self.switch_control_mode_brake = False
+                        if self.init_brake == brake:
+                            brake = 0
+                        else:
+                            self.init_brake = 0
+
+                        # Updates the vehicle brake
                         self._control.brake = min(brake, 1)
             
             if event.type == pygame.QUIT:
