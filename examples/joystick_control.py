@@ -196,8 +196,8 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
-        self.keyboard_control = True
-        self.max_throttle = 0.6
+        self.keyboard_control = False
+        self.max_throttle = 0.4
         self.max_turning = 0.4
         # self._vehicle_id = "vehicle.mercedes-benz.coupe"
 
@@ -328,12 +328,15 @@ class KeyboardControl(object):
     """Class that handles keyboard input."""
     def __init__(self, world, start_in_autopilot):
         self._autopilot_enabled = start_in_autopilot
-        self.speed_limit = 20
+        self.speed_limit = 10
+        self.init_throttle = 0
+        self.init_brake = 0
         # Sets the initial values of the joystick when mode changes
         self.switch_control_mode_throttle = False
         self.switch_control_mode_brake = False
-        self.init_throttle = 0
-        self.init_brake = 0
+        if world.keyboard_control is False:
+            self.switch_control_mode_throttle = True
+            self.switch_control_mode_brake = True
         if isinstance(world.player, carla.Vehicle):
             self._control = carla.VehicleControl()
             self._lights = carla.VehicleLightState.NONE
@@ -438,7 +441,7 @@ class KeyboardControl(object):
                     # Axis 0 is steering wheel. 
                     # This Id can change when the computer or the joystick is restarted
                     if i == STEERING_WHEEL_AXIS: 
-                        self._steer_cache = float(self.joystick.get_axis(i)) * 0.6 # Turn multiplier
+                        self._steer_cache = float(self.joystick.get_axis(i)) * 0.4 # Turn multiplier
                         # min/max are the values of how much the vehicle can 
                         turn_min = world.max_turning #0.7 old value
                         turn_max = -world.max_turning #-0.7 old value
@@ -451,7 +454,7 @@ class KeyboardControl(object):
                         speed = (3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2))
                         throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
                         # slow down the acceleration (throttle)
-                        throttle_multiplier = 1.5
+                        throttle_multiplier = 2
                         if self.speed_limit < speed:
                             throttle_multiplier = throttle_multiplier + (speed-self.speed_limit) / 10
                         throttle = throttle/throttle_multiplier
