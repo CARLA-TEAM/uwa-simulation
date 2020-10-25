@@ -1,50 +1,56 @@
-#!/usr/bin/env python
-
-# Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB).
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
-# Allows controlling a vehicle with a keyboard. For a simpler and more
-# documented example, please take a look at tutorial.py.
+# University of Western Australia
+# CITS5551 - CARLA simulation of autonomous vehicle
+# Gerardo Cisneros Mendoza 21993026
+# Yuan Shi 22167488
+# Yunzhuo Chen 22075606
+# Stephen Arowosafe 22586578
+# Guangming Chen
 
 """
-Welcome to CARLA manual control.
+Welcome to CARLA UWA SIMULATION.
+University of Western Australia
+CITS5551 - CARLA simulation of autonomous vehicle
+- Gerardo Cisneros Mendoza 21993026
+- Yuan Shi 22167488
+- Yunzhuo Chen 22075606
+- Stephen Arowosafe 22586578
+- Guangming Chen
 
 Use ARROWS or WASD keys for control.
+ KEYBOARD    JOYSTICK
+    1       SQUARES/7   : Change control mode (Keyboard/Joystick)
 
-    W            : throttle
-    S            : brake
-    A/D          : steer left/right
-    Q            : toggle reverse
-    Space        : hand-brake
-    P            : toggle autopilot
-    M            : toggle manual transmission
-    ,/.          : gear up/down
-
-    L            : toggle next light type
-    SHIFT + L    : toggle high beam
-    Z/X          : toggle right/left blinker
-    I            : toggle interior light
-
-    TAB          : change sensor position
-    ` or N       : next sensor
-    [1-9]        : change to sensor [1-9]
-    G            : toggle radar visualization
-    C            : change weather (Shift+C reverse)
-    Backspace    : change vehicle
-
-    R            : toggle recording images to disk
-
-    CTRL + R     : toggle recording of simulation (replacing any previous)
-    CTRL + P     : start replaying last recorded simulation
-    CTRL + +     : increments the start time of the replay by 1 second (+SHIFT = 10 seconds)
-    CTRL + -     : decrements the start time of the replay by 1 second (+SHIFT = 10 seconds)
-
-    F1           : toggle HUD
-    H/?          : toggle help
-    ESC          : quit
+    W        AXIS X     : throttle
+    S        AXIS X     : brake
+    A/D      AXIS Y     : steer left/right
+    Q        GEAR/15    : toggle reverse
+    Space               : hand-brake
+    P         LSB       : toggle autopilot
+    M                   : toggle manual transmission
+    ,/.                 : gear up/down
+    
+    L                   : toggle next light type
+    SHIFT + L           : toggle high beam
+    Z/X                 : toggle right/left blinker
+    I                   : toggle interior light
+    
+    TAB          Y      : change sensor position
+    ` or N       X      : next sensor
+    [1-9]               : change to sensor [1-9]
+    G                   : toggle radar visualization
+    C            B      : change weather (Shift+C reverse)
+    Backspace           : change vehicle
+    
+    R                   : toggle recording images to disk
+    
+    CTRL + R            : toggle recording of simulation (replacing any previous)
+    CTRL + P            : start replaying last recorded simulation
+    CTRL + +            : increments the start time of the replay by 1 second (+SHIFT = 10 seconds)
+    CTRL + -            : decrements the start time of the replay by 1 second (+SHIFT = 10 seconds)
+    
+    F1          RSB     : toggle HUD
+    H/?         = / 6   : toggle help
+    ESC         XBOX    : quit
 """
 
 from __future__ import print_function
@@ -85,12 +91,14 @@ import math
 import random
 import re
 import weakref
+import subprocess
 
 try:
     import pygame
     from pygame.locals import KMOD_CTRL
     from pygame.locals import KMOD_SHIFT
     from pygame.locals import K_0
+    from pygame.locals import K_1
     from pygame.locals import K_9
     from pygame.locals import K_BACKQUOTE
     from pygame.locals import K_BACKSPACE
@@ -130,6 +138,13 @@ try:
     import numpy as np
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
+
+# ==============================================================================
+# -- Constants ----------------------------------------------------------
+# ==============================================================================
+
+WINDOW_TITLE = "UWA Simulation"
+IMG_SRC = "../uwa-logo.png"
 
 
 # ==============================================================================
@@ -181,15 +196,39 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
+        self.keyboard_control = False
+        self.max_throttle = 0.4
+        self.max_turning = 0.4
+        # self._vehicle_id = "vehicle.mercedes-benz.coupe"
 
     def restart(self):
         self.player_max_speed = 1.589
         self.player_max_speed_fast = 3.713
+        '''
+        Vehicle id
+            Options:
+                - vehicle.mustang.mustang
+                - vehicle.bmw.grandtourer
+                - vehicle.audi.etron
+                - vehicle.dodge_charger.police
+                - vehicle.jeep.wrangler_rubicon
+                - vehicle.bmw.isetta
+                - vehicle.mercedes-benz.coupe
+                - vehicle.audi.tt
+        '''
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 0
         # Get a random blueprint.
         blueprint = random.choice(self.world.get_blueprint_library().filter('vehicle'))
+        pygame.joystick.init()
+        joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+        joystick = joysticks[0]
+        joystick.init()
+
+        # buttons = joystick.get_numbuttons() 
+        # for i in range(buttons):
+        #     button = joystick.get_button(i)
         blueprint.set_attribute('role_name', self.actor_role_name)
         if blueprint.has_attribute('color'):
             color = random.choice(blueprint.get_attribute('color').recommended_values)
@@ -220,7 +259,14 @@ class World(object):
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            
+            # Spawning vehicle in REID Library
+            spawn_point.location.x = -85.3
+            spawn_point.location.y = -274.9
+            spawn_point.location.z = spawn_point.location.z + 15
+            spawn_point.rotation.yaw = 90
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
@@ -282,6 +328,15 @@ class KeyboardControl(object):
     """Class that handles keyboard input."""
     def __init__(self, world, start_in_autopilot):
         self._autopilot_enabled = start_in_autopilot
+        self.speed_limit = 10
+        self.init_throttle = 0
+        self.init_brake = 0
+        # Sets the initial values of the joystick when mode changes
+        self.switch_control_mode_throttle = False
+        self.switch_control_mode_brake = False
+        if world.keyboard_control is False:
+            self.switch_control_mode_throttle = True
+            self.switch_control_mode_brake = True
         if isinstance(world.player, carla.Vehicle):
             self._control = carla.VehicleControl()
             self._lights = carla.VehicleLightState.NONE
@@ -295,13 +350,143 @@ class KeyboardControl(object):
             raise NotImplementedError("Actor type not supported")
         self._steer_cache = 0.0
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
+        try:
+            self.joystick = pygame.joystick.Joystick(0)
+        except:
+            print("Error: No joystick detected.")
+        self.throttle_on = False
+        self.brake_on = False
 
     def parse_events(self, client, world, clock):
+        JOYSTICK_THROTTLE = 4
+        JOYSTICK_BRAKE = 5
+        JOYSTICK_REVERSE = 15
+        JOYSTICK_SWITCH = 7
+        JOYSTICK_INFO = 6
+        JOYSTICK_XBOX = 10
+        JOYSTICK_LSB = 9
+        JOYSTICK_RSB = 8
+        JOYSTICK_Y = 3
+        JOYSTICK_B = 1
+        JOYSTICK_A = 0
+        JOYSTICK_X = 2
+        STEERING_WHEEL_AXIS = 0
+        THROTTLE_AXIS = 1
+        BRAKE_AXIS = 2
+        CLUTCH_AXIS = 3
         if isinstance(self._control, carla.VehicleControl):
             current_lights = self._lights
         for event in pygame.event.get():
+
+            # if not world.keyboard_control:
+            if event.type == pygame.JOYBUTTONDOWN:
+                for i in range(self.joystick.get_numbuttons()):
+                    button = self.joystick.get_button(i)
+                if self.joystick.get_button(JOYSTICK_REVERSE):
+                    self._control.gear = -1
+
+                if self.joystick.get_button(JOYSTICK_SWITCH):
+                    # Changes the driving control
+                    if world.keyboard_control:
+                        self.switch_control_mode_throttle = True
+                        self.switch_control_mode_brake = True
+                        world.keyboard_control = False
+                    else:
+                        world.keyboard_control = True
+
+                if self.joystick.get_button(JOYSTICK_LSB):
+                    # Enables/disables autopilot
+                    if self._autopilot_enabled:
+                        world.player.set_autopilot(False)
+                        world.restart()
+                        world.player.set_autopilot(True)
+                    else:
+                        world.restart()
+
+                if self.joystick.get_button(JOYSTICK_RSB):
+                    # Hides the HUD
+                    world.hud.toggle_info()
+
+                if self.joystick.get_button(JOYSTICK_INFO):
+                    # Displays the info
+                    world.hud.help.toggle()
+
+                if self.joystick.get_button(JOYSTICK_Y):
+                    # Change the view of the simulation
+                    world.camera_manager.toggle_camera()
+
+                if self.joystick.get_button(JOYSTICK_X):
+                    # Change the view of the sensors
+                    world.camera_manager.next_sensor()
+
+                if self.joystick.get_button(JOYSTICK_B):
+                    # Change weather
+                    world.next_weather()
+
+                if self.joystick.get_button(JOYSTICK_XBOX):
+                    # Quit
+                    return True            
+
+            elif event.type == pygame.JOYBUTTONUP:
+                for i in range(self.joystick.get_numbuttons()):
+                    button = self.joystick.get_button(i)
+
+                if not self.joystick.get_button(JOYSTICK_REVERSE):
+                    self._control.gear = 1
+            
+            elif event.type == pygame.JOYAXISMOTION and not world.keyboard_control:
+                # Drive with steering wheel only when keyboard control is NOT activated
+                axes = self.joystick.get_numaxes()
+                for i in range(axes):
+                    # Axis 0 is steering wheel. 
+                    # This Id can change when the computer or the joystick is restarted
+                    if i == STEERING_WHEEL_AXIS: 
+                        self._steer_cache = float(self.joystick.get_axis(i)) * 0.4 # Turn multiplier
+                        # min/max are the values of how much the vehicle can 
+                        turn_min = world.max_turning #0.7 old value
+                        turn_max = -world.max_turning #-0.7 old value
+                        self._steer_cache = min(turn_min, max(turn_max, self._steer_cache))
+                        self._control.steer = round(self._steer_cache, 3)
+
+                    if i == THROTTLE_AXIS:
+                        # Adjust throttle to speed limit
+                        velocity = world.player.get_velocity()
+                        speed = (3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2))
+                        throttle = float("{:.3f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                        # slow down the acceleration (throttle)
+                        throttle_multiplier = 2
+                        if self.speed_limit < speed:
+                            throttle_multiplier = throttle_multiplier + (speed-self.speed_limit) / 10
+                        throttle = throttle/throttle_multiplier
+
+                        # Sets initial value of the throttle
+                        if self.switch_control_mode_throttle:
+                            self.init_throttle = throttle
+                            self.switch_control_mode_throttle = False
+                        if self.init_throttle == throttle:
+                            throttle = 0
+                        else:
+                            self.init_throttle = 0
+                        
+                        # Updates the vehicle throttle
+                        self._control.throttle = min(throttle, world.max_throttle)
+
+                    if i == BRAKE_AXIS:
+                        brake = float("{:.2f}".format(-(float(self.joystick.get_axis(i)) - 1) / 2))
+                        # Sets initial value of the brake
+                        if self.switch_control_mode_brake:
+                            self.init_brake = brake
+                            self.switch_control_mode_brake = False
+                        if self.init_brake == brake:
+                            brake = 0
+                        else:
+                            self.init_brake = 0
+
+                        # Updates the vehicle brake
+                        self._control.brake = min(brake, 1)
+            
             if event.type == pygame.QUIT:
-                return True
+                return True            
             elif event.type == pygame.KEYUP:
                 if self._is_quit_shortcut(event.key):
                     return True
@@ -312,6 +497,13 @@ class KeyboardControl(object):
                         world.player.set_autopilot(True)
                     else:
                         world.restart()
+                elif event.key == K_1:
+                    # Changes the driving control
+                    if world.keyboard_control:
+                        world.keyboard_control = False
+                    else:
+                        world.keyboard_control = True
+
                 elif event.key == K_F1:
                     world.hud.toggle_info()
                 elif event.key == K_h or (event.key == K_SLASH and pygame.key.get_mods() & KMOD_SHIFT):
@@ -414,7 +606,13 @@ class KeyboardControl(object):
 
         if not self._autopilot_enabled:
             if isinstance(self._control, carla.VehicleControl):
-                self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
+                # Drive with keyboard only when keyboard control is activated
+                if world.keyboard_control:
+                    self._parse_vehicle_keys(
+                        pygame.key.get_pressed(),
+                        clock.get_time(),
+                        world
+                    )
                 self._control.reverse = self._control.gear < 0
                 # Set automatic control-related vehicle lights
                 if self._control.brake:
@@ -432,9 +630,16 @@ class KeyboardControl(object):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
             world.player.apply_control(self._control)
 
-    def _parse_vehicle_keys(self, keys, milliseconds):
+    def _parse_vehicle_keys(self, keys, milliseconds, world):
         if keys[K_UP] or keys[K_w]:
-            self._control.throttle = min(self._control.throttle + 0.01, 1)
+            # Adjust throttle to speed limit
+            velocity = world.player.get_velocity()
+            speed = (3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2))
+            throttle = 0.01
+            if self.speed_limit > speed:
+                throttle = 0
+
+            self._control.throttle = min(self._control.throttle + 0.01, world.max_throttle)
         else:
             self._control.throttle = 0.0
 
@@ -456,7 +661,10 @@ class KeyboardControl(object):
                 self._steer_cache += steer_increment
         else:
             self._steer_cache = 0.0
-        self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
+        # min/max are the values of how much the vehicle can 
+        turn_min = world.max_turning #0.7 old value
+        turn_max = -world.max_turning #-0.7 old value
+        self._steer_cache = min(turn_min, max(turn_max, self._steer_cache))
         self._control.steer = round(self._steer_cache, 1)
         self._control.hand_brake = keys[K_SPACE]
 
@@ -467,6 +675,7 @@ class KeyboardControl(object):
         if keys[K_LEFT] or keys[K_a]:
             self._control.speed = .01
             self._rotation.yaw -= 0.08 * milliseconds
+        #Steering wheel to right
         if keys[K_RIGHT] or keys[K_d]:
             self._control.speed = .01
             self._rotation.yaw += 0.08 * milliseconds
@@ -532,7 +741,7 @@ class HUD(object):
             'Server:  % 16.0f FPS' % self.server_fps,
             'Client:  % 16.0f FPS' % clock.get_fps(),
             '',
-            'Vehicle puto: % 20s' % get_actor_display_name(world.player, truncate=20),
+            'Vehicle: % 20s' % get_actor_display_name(world.player, truncate=20),
             'Map:     % 20s' % world.map.name,
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
@@ -545,14 +754,21 @@ class HUD(object):
             'Height:  % 18.0f m' % t.location.z,
             '']
         if isinstance(c, carla.VehicleControl):
+            if world.keyboard_control:
+                control_msg = "Keyboard"
+            else:
+                control_msg = "Steering Wheel/Joystick"
             self._info_text += [
-                ('Throttle:', c.throttle, 0.0, 1.0),
-                ('Steer:', c.steer, -1.0, 1.0),
+                # Max throttle set in world
+                ('Throttle:', c.throttle, 0.0, world.max_throttle),
+                # Max turning set in world
+                ('Steer:', c.steer, -world.max_turning, world.max_turning),
                 ('Brake:', c.brake, 0.0, 1.0),
                 ('Reverse:', c.reverse),
                 ('Hand brake:', c.hand_brake),
                 ('Manual:', c.manual_gear_shift),
-                'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
+                'Control:', control_msg]
+                #'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
         elif isinstance(c, carla.WalkerControl):
             self._info_text += [
                 ('Speed:', c.speed, 0.0, 5.556),
@@ -892,11 +1108,14 @@ class CameraManager(object):
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
+            (carla.Transform(carla.Location(x=-8.0, z=3), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (carla.Transform(carla.Location(x=-10.0, z=4), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)
+        ]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
@@ -1005,11 +1224,28 @@ def game_loop(args):
 
     try:
         client = carla.Client(args.host, args.port)
-        client.set_timeout(2.0)
+        # Sets a longer timeout to give time CARLA simulation to start
+        client.set_timeout(60.0)
+
+        # Gets the information about the screens
+        info = pygame.display.Info()
+        '''
+        TODO: Change this current size and add args WxH if exists
+        '''
+        current_height = info.current_h
+        # Current width divided by the number of screens
+        current_width = int(info.current_w / 3)
+
+        # Sets the name of the window
+        pygame.display.set_caption(WINDOW_TITLE)
+        # Load the UWA icon
+        img = pygame.image.load(IMG_SRC)
+        # Sets the UWA icon
+        pygame.display.set_icon(img)
 
         display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
+            (current_width, current_height),
+            pygame.HWSURFACE | pygame.DOUBLEBUF, pygame.RESIZABLE)
 
         hud = HUD(args.width, args.height)
         world = World(client.get_world(), hud, args)
@@ -1066,7 +1302,7 @@ def main():
     argparser.add_argument(
         '--res',
         metavar='WIDTHxHEIGHT',
-        default='1280x720',
+        default='1900x1020',
         help='window resolution (default: 1280x720)')
     argparser.add_argument(
         '--filter',
